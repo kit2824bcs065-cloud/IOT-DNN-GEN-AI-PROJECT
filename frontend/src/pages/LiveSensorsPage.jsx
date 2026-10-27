@@ -1,0 +1,442 @@
+import React, { useState } from 'react';
+import { 
+  Droplets, 
+  Thermometer, 
+  Sun, 
+  CloudRain, 
+  FlaskConical, 
+  Layers, 
+  Radio, 
+  RefreshCw, 
+  Play, 
+  Pause, 
+  CheckCircle2, 
+  AlertTriangle, 
+  AlertOctagon, 
+  Code, 
+  Wifi, 
+  Sliders 
+} from 'lucide-react';
+import { 
+  LineChart, 
+  Line, 
+  XAxis, 
+  YAxis, 
+  CartesianGrid, 
+  Tooltip, 
+  Legend, 
+  ResponsiveContainer 
+} from 'recharts';
+
+export default function LiveSensorsPage({ 
+  currentReading, 
+  historyData, 
+  autoSimulate, 
+  setAutoSimulate, 
+  triggerTick, 
+  isTickLoading 
+}) {
+  const [showNpk, setShowNpk] = useState(true);
+  const [showHardwareGuide, setShowHardwareGuide] = useState(false);
+
+  const reading = currentReading || {};
+  const health = reading.health_analysis || {};
+
+  const moisture = reading.soil_moisture ?? 28.4;
+  const temp = reading.temperature ?? 32.2;
+  const humidity = reading.humidity ?? 58.0;
+  const ph = reading.soil_ph ?? 6.5;
+  const light = reading.light_lux ?? 42500;
+  const rain = reading.rain_detected ?? 0;
+  const n = reading.nitrogen ?? 142.0;
+  const p = reading.phosphorus ?? 41.5;
+  const k = reading.potassium ?? 184.0;
+
+  // History for charts
+  const chartData = (historyData || []).slice(-20).map(item => ({
+    time: item.recorded_at ? item.recorded_at.split(' ')[1].substring(0, 5) : '',
+    moisture: item.soil_moisture,
+    temp: item.temperature,
+    humidity: item.humidity,
+    ph: item.soil_ph,
+  }));
+
+  return (
+    <div className="page-wrapper">
+      {/* Top Header & Simulation Controls */}
+      <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '16px',
+        marginBottom: '24px'
+      }}>
+        <div>
+          <h2 style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>
+            Live IoT Sensor Monitoring
+          </h2>
+          <p style={{ fontSize: '0.86rem', color: 'var(--text-muted)' }}>
+            Multi-sensor node telemetry with agronomic comfort-zone thresholds and ESP32 REST interface.
+          </p>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* NPK Toggle */}
+          <button
+            onClick={() => setShowNpk(!showNpk)}
+            className="btn btn-secondary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Sliders size={14} />
+            <span>{showNpk ? 'Hide NPK Sensor' : 'Show Optional NPK'}</span>
+          </button>
+
+          {/* Hardware API Modal Toggle */}
+          <button
+            onClick={() => setShowHardwareGuide(!showHardwareGuide)}
+            className="btn btn-secondary btn-sm"
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            <Code size={14} />
+            <span>ESP32 Hardware Protocol</span>
+          </button>
+
+          {/* Auto Simulation Toggle */}
+          <button
+            onClick={() => setAutoSimulate(!autoSimulate)}
+            className={`btn ${autoSimulate ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+            style={{ display: 'flex', alignItems: 'center', gap: '6px' }}
+          >
+            {autoSimulate ? <Pause size={14} /> : <Play size={14} />}
+            <span>{autoSimulate ? 'Simulation Active (4s)' : 'Resume Simulation'}</span>
+          </button>
+
+          {/* Manual Tick */}
+          <button
+            onClick={triggerTick}
+            disabled={isTickLoading}
+            className="btn btn-primary btn-sm"
+          >
+            <RefreshCw size={14} className={isTickLoading ? 'animate-spin-slow' : ''} />
+            <span>Simulate Tick</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Prominent Demo Data Notice */}
+      <div style={{
+        background: reading.is_simulated ? 'rgba(245, 158, 11, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+        border: `1px solid ${reading.is_simulated ? 'rgba(245, 158, 11, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`,
+        borderRadius: '14px',
+        padding: '14px 20px',
+        marginBottom: '24px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        flexWrap: 'wrap',
+        gap: '12px'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <Radio size={20} color={reading.is_simulated ? '#f59e0b' : '#10b981'} className={reading.is_simulated ? '' : 'animate-pulse-subtle'} />
+          <div>
+            <strong style={{ color: reading.is_simulated ? '#d97706' : '#059669', fontSize: '0.9rem' }}>
+              DATA SOURCE: {reading.data_source || 'SIMULATION (DEMO DATA)'}
+            </strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              {reading.is_simulated 
+                ? 'All readings generated by calibrated Brownian diurnal micro-climate engine for demonstration.' 
+                : 'Physical ESP32 node actively streaming calibrated telemetry over authenticated endpoint.'}
+            </p>
+          </div>
+        </div>
+
+        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          Device Node: <strong>{reading.device_id || 'ESP32-AGRI-01'}</strong> • Last Sync: <strong>{reading.last_updated}</strong>
+        </div>
+      </div>
+
+      {/* Hardware Developer Snippet Drawer (Collapsible) */}
+      {showHardwareGuide && (
+        <div className="card" style={{ marginBottom: '24px', background: 'var(--bg-surface-elevated)' }}>
+          <div className="card-header">
+            <h4 className="card-title">
+              <Wifi size={18} color="var(--primary-600)" />
+              <span>Real Hardware ESP32 Integration Protocol</span>
+            </h4>
+            <span className="badge badge-emerald">MODULAR ENDPOINT</span>
+          </div>
+          <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '12px' }}>
+            To stream real hardware data from your ESP32 board into this dashboard, configure your Arduino/ESP-IDF sketch to POST to:
+            <code style={{ background: 'var(--bg-surface)', padding: '2px 8px', borderRadius: '6px', marginLeft: '6px' }}>
+              http://&lt;IP_ADDRESS&gt;:5000/api/sensors/telemetry
+            </code>
+          </p>
+          <pre style={{
+            background: '#0b1120',
+            color: '#34d399',
+            padding: '16px',
+            borderRadius: '10px',
+            fontSize: '0.82rem',
+            overflowX: 'auto',
+            fontFamily: 'Consolas, monospace'
+          }}>
+{`// ESP32 Arduino C++ HTTP Client Example:
+#include <WiFi.h>
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
+void sendTelemetry() {
+  HTTPClient http;
+  http.begin("http://192.168.1.100:5000/api/sensors/telemetry");
+  http.addHeader("Content-Type", "application/json");
+
+  StaticJsonDocument<256> doc;
+  doc["device_id"] = "ESP32-AGRI-01";
+  doc["soil_moisture"] = analogRead(34) * (100.0 / 4095.0); // Capacitive sensor
+  doc["temperature"] = dht.readTemperature();
+  doc["humidity"] = dht.readHumidity();
+  doc["soil_ph"] = 6.5;
+  doc["light_lux"] = 42000;
+  doc["rain_detected"] = digitalRead(27) == LOW ? 1 : 0;
+
+  String jsonString;
+  serializeJson(doc, jsonString);
+  int httpCode = http.POST(jsonString);
+  http.end();
+}`}
+          </pre>
+        </div>
+      )}
+
+      {/* 6 Sensors Grid */}
+      <div className={`grid-cols-${showNpk ? '3' : '3'}`} style={{ marginBottom: '28px' }}>
+        {/* Sensor A: Soil Moisture */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="badge badge-slate" style={{ fontSize: '0.7rem', marginBottom: '4px' }}>SENSOR A</span>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Capacitive Soil Moisture</h4>
+            </div>
+            <div style={{ background: 'rgba(16, 185, 129, 0.12)', color: '#10b981', padding: '8px', borderRadius: '10px' }}>
+              <Droplets size={22} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '14px 0 10px' }}>
+            <span style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-main)' }}>{moisture}%</span>
+            <span className={`badge ${moisture < 25 ? 'badge-red' : moisture < 32 ? 'badge-amber' : 'badge-emerald'}`}>
+              {health.moisture?.level || 'MONITORED'}
+            </span>
+          </div>
+
+          <div style={{ width: '100%', height: '8px', background: 'var(--bg-surface-elevated)', borderRadius: '999px', overflow: 'hidden', marginBottom: '12px' }}>
+            <div style={{
+              width: `${Math.min(100, moisture)}%`,
+              height: '100%',
+              background: moisture < 30 ? '#ef4444' : 'linear-gradient(90deg, #10b981, #059669)',
+              borderRadius: '999px'
+            }} />
+          </div>
+
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            <strong>Advisory:</strong> {health.moisture?.message}
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', marginTop: '8px' }}>
+            Hardware: Capacitive Soil Moisture Sensor v1.2 (ADC GPIO 34)
+          </div>
+        </div>
+
+        {/* Sensor B: DHT22 Temp & Humidity */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="badge badge-slate" style={{ fontSize: '0.7rem', marginBottom: '4px' }}>SENSOR B</span>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 700 }}>DHT22 Microclimate</h4>
+            </div>
+            <div style={{ background: 'rgba(245, 158, 11, 0.12)', color: '#f59e0b', padding: '8px', borderRadius: '10px' }}>
+              <Thermometer size={22} />
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', margin: '14px 0 10px' }}>
+            <div style={{ background: 'var(--bg-surface-elevated)', padding: '12px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Temperature</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{temp}°C</div>
+              <span className={`badge ${temp > 35 ? 'badge-red' : 'badge-emerald'}`} style={{ fontSize: '0.65rem' }}>
+                {health.temperature?.level || 'NORMAL'}
+              </span>
+            </div>
+
+            <div style={{ background: 'var(--bg-surface-elevated)', padding: '12px', borderRadius: '10px' }}>
+              <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Relative Humidity</div>
+              <div style={{ fontSize: '1.6rem', fontWeight: 800, color: 'var(--text-main)' }}>{humidity}%</div>
+              <span className={`badge ${humidity > 80 ? 'badge-amber' : 'badge-emerald'}`} style={{ fontSize: '0.65rem' }}>
+                {health.humidity?.level || 'OPTIMAL'}
+              </span>
+            </div>
+          </div>
+
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', marginTop: '8px' }}>
+            Hardware: Digital DHT22 AM2302 Sensor (Single-bus GPIO 4)
+          </div>
+        </div>
+
+        {/* Sensor C: Soil pH */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="badge badge-slate" style={{ fontSize: '0.7rem', marginBottom: '4px' }}>SENSOR C</span>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Analog Soil pH Sensor</h4>
+            </div>
+            <div style={{ background: 'rgba(139, 92, 246, 0.12)', color: '#8b5cf6', padding: '8px', borderRadius: '10px' }}>
+              <FlaskConical size={22} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '14px 0 10px' }}>
+            <span style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-main)' }}>{ph}</span>
+            <span className="badge badge-emerald">OPTIMAL 6.5</span>
+          </div>
+
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            <strong>Advisory:</strong> {health.ph?.message}
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', marginTop: '22px' }}>
+            Hardware: Glass Electrode pH Probe & Signal Conditioning Module (GPIO 35)
+          </div>
+        </div>
+
+        {/* Sensor D: LDR Light */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="badge badge-slate" style={{ fontSize: '0.7rem', marginBottom: '4px' }}>SENSOR D</span>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 700 }}>LDR Solar Lux Sensor</h4>
+            </div>
+            <div style={{ background: 'rgba(234, 179, 8, 0.12)', color: '#eab308', padding: '8px', borderRadius: '10px' }}>
+              <Sun size={22} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '14px 0 10px' }}>
+            <span style={{ fontSize: '2.5rem', fontWeight: 800, color: 'var(--text-main)' }}>
+              {Number(light).toLocaleString()}
+            </span>
+            <span style={{ fontSize: '1rem', color: 'var(--text-muted)', fontWeight: 600 }}>lux</span>
+          </div>
+
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            Calibrated photodiode measuring photosynthetically active radiation (PAR).
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', marginTop: '22px' }}>
+            Hardware: Calibrated Light Dependent Resistor (LDR) with voltage divider (GPIO 32)
+          </div>
+        </div>
+
+        {/* Sensor E: Rain Sensor */}
+        <div className="card">
+          <div className="card-header">
+            <div>
+              <span className="badge badge-slate" style={{ fontSize: '0.7rem', marginBottom: '4px' }}>SENSOR E</span>
+              <h4 style={{ fontSize: '1.05rem', fontWeight: 700 }}>IoT Rain Detector</h4>
+            </div>
+            <div style={{ background: rain ? 'rgba(2, 132, 199, 0.18)' : 'rgba(100, 116, 139, 0.12)', color: rain ? '#0284c7' : 'var(--text-muted)', padding: '8px', borderRadius: '10px' }}>
+              <CloudRain size={22} />
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', margin: '14px 0 10px' }}>
+            <span style={{ fontSize: '1.9rem', fontWeight: 800, color: rain ? '#0284c7' : 'var(--text-main)' }}>
+              {rain === 1 ? 'Rain Detected' : 'Rain Not Detected'}
+            </span>
+          </div>
+
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+            <strong>Advisory:</strong> {health.rain?.message}
+          </div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', marginTop: '22px' }}>
+            Hardware: Nickel Coated Rain Sensing Plate with LM393 Comparator (Digital GPIO 27)
+          </div>
+        </div>
+
+        {/* Sensor F: Optional NPK Sensor */}
+        {showNpk && (
+          <div className="card" style={{ border: '1px dashed var(--primary-500)' }}>
+            <div className="card-header">
+              <div>
+                <span className="badge badge-emerald" style={{ fontSize: '0.7rem', marginBottom: '4px' }}>SENSOR F (OPTIONAL)</span>
+                <h4 style={{ fontSize: '1.05rem', fontWeight: 700 }}>Optical Soil NPK Sensor</h4>
+              </div>
+              <div style={{ background: 'rgba(5, 150, 105, 0.12)', color: '#059669', padding: '8px', borderRadius: '10px' }}>
+                <Layers size={22} />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', margin: '12px 0 10px' }}>
+              <div style={{ background: 'var(--bg-surface-elevated)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Nitrogen (N)</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#059669' }}>{n}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>mg/kg</div>
+              </div>
+              <div style={{ background: 'var(--bg-surface-elevated)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Phosphorus (P)</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#0284c7' }}>{p}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>mg/kg</div>
+              </div>
+              <div style={{ background: 'var(--bg-surface-elevated)', padding: '8px', borderRadius: '8px', textAlign: 'center' }}>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Potassium (K)</div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#f59e0b' }}>{k}</div>
+                <div style={{ fontSize: '0.65rem', color: 'var(--text-subtle)' }}>mg/kg</div>
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+              NPK ratio suitable for fruit enlargement in solanaceous crops.
+            </div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', marginTop: '8px' }}>
+              Hardware: RS485 / Modbus NPK Multi-probe via MAX485 Transceiver (UART2)
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Interactive Multi-Sensor Time Series Graph */}
+      <div className="card">
+        <div className="card-header">
+          <div>
+            <h3 className="card-title">Continuous Time-Series Telemetry Stream</h3>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+              Real-time synchronization between IoT sensors and SQLite database storage
+            </p>
+          </div>
+          <span className="badge badge-emerald">AUTO SYNCING</span>
+        </div>
+
+        <div style={{ height: '320px', width: '100%' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <LineChart data={chartData} margin={{ top: 10, right: 20, left: -20, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="var(--border-subtle)" />
+              <XAxis dataKey="time" stroke="var(--text-muted)" fontSize={12} />
+              <YAxis stroke="var(--text-muted)" fontSize={12} />
+              <Tooltip 
+                contentStyle={{ 
+                  background: 'var(--bg-surface)', 
+                  borderColor: 'var(--border-color)', 
+                  borderRadius: '10px',
+                  color: 'var(--text-main)',
+                  boxShadow: 'var(--shadow-md)'
+                }} 
+              />
+              <Legend verticalAlign="top" height={36} />
+              <Line type="monotone" dataKey="moisture" name="Soil Moisture (%)" stroke="#10b981" strokeWidth={2.5} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="temp" name="Temperature (°C)" stroke="#f59e0b" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="humidity" name="Humidity (%)" stroke="#0284c7" strokeWidth={2} dot={{ r: 2 }} />
+              <Line type="monotone" dataKey="ph" name="Soil pH" stroke="#8b5cf6" strokeWidth={2} dot={{ r: 2 }} />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  );
+}
